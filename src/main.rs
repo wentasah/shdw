@@ -72,12 +72,12 @@ fn main() -> anyhow::Result<()> {
                 let shadow = shadow_dir.join(f);
                 let f = Path::new(f);
                 if !shadow.is_file() {
-                    bail!("{} is not a file", shadow.display());
+                    bail!("`{}` is not a file", shadow.display());
                 }
                 if f.is_symlink() && f.is_file() {
-                    remove_file(f).with_context(|| format!("Removing {}", f.display()))?;
+                    remove_file(f).with_context(|| format!("Removing `{}`", f.display()))?;
                     fs::rename(&shadow, f).with_context(|| {
-                        format!("Moving {} to {}", shadow.display(), f.display())
+                        format!("Moving `{}` to `{}`", shadow.display(), f.display())
                     })?;
                 }
             }
