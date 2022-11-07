@@ -74,11 +74,17 @@ fn main() -> anyhow::Result<()> {
                 if !shadow.is_file() {
                     bail!("`{}` is not a file", shadow.display());
                 }
-                if f.is_symlink() && f.is_file() {
+                if f.is_symlink() && f.is_file() && fs::read_link(f)? == shadow {
                     remove_file(f).with_context(|| format!("Removing `{}`", f.display()))?;
                     fs::rename(&shadow, f).with_context(|| {
                         format!("Moving `{}` to `{}`", shadow.display(), f.display())
                     })?;
+                } else {
+                    bail!(
+                        "Not removing `{}` because it's not a symlink pointing to file `{}`",
+                        f.display(),
+                        shadow.display()
+                    );
                 }
             }
         }
