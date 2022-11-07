@@ -22,7 +22,11 @@ pub enum Commands {
     /// List files in the shadow directory.
     Ls {},
     /// (Re)create symlinks to all files in the shadow directory.
-    Restore {},
+    Restore {
+        /// Remove existing files in place of created symlinks
+        #[arg(short, long)]
+        force: bool,
+    },
     /// Move given files out of the shadow directory to the place of
     /// their symlinks at or under the current directory.
     Rm {

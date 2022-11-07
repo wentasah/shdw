@@ -45,19 +45,26 @@ fn main() -> anyhow::Result<()> {
             println!("{}", e.path().strip_prefix(&shadow_dir)?.display());
             Ok(())
         })?,
-        Commands::Restore {} => walk_shadow_files(&shadow_dir, |e| {
+        Commands::Restore { force } => walk_shadow_files(&shadow_dir, |e| {
             let link = e.path().strip_prefix(&shadow_dir)?;
             if let Some(parent) = link.parent() {
-                if !parent.exists() {
+                if !parent.as_os_str().is_empty() && !parent.exists() {
                     fs::create_dir(parent)
-                        .with_context(|| format!("Creating directory {}", parent.display()))?;
+                        .with_context(|| format!("Creating directory `{}`", parent.display()))?;
                 }
             }
             if link.exists() {
-                remove_file(link).with_context(|| format!("Removing {}", link.display()))?;
+                if link.is_symlink() && fs::read_link(link)? == e.path() {
+                    return Ok(());
+                }
+                if *force {
+                    remove_file(link).with_context(|| format!("Removing `{}`", link.display()))?;
+                } else {
+                    bail!("File exists: `{}`", link.display());
+                }
             }
             std::os::unix::fs::symlink(e.path(), link)
-                .with_context(|| format!("Creating link {}", link.display()))?;
+                .with_context(|| format!("Creating link `{}`", link.display()))?;
             Ok(())
         })?,
         Commands::Rm { files } => {
