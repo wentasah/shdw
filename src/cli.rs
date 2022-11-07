@@ -26,7 +26,7 @@ pub enum Commands {
     /// Move given files out of the shadow directory to the place of
     /// their symlinks at or under the current directory.
     Rm {
-        #[arg(required(true))]
+        #[arg(required(true), value_hint = ValueHint::FilePath)]
         files: Vec<String>,
     },
 }
