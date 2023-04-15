@@ -45,28 +45,7 @@ fn main() -> anyhow::Result<()> {
             println!("{}", e.path().strip_prefix(&shadow_dir)?.display());
             Ok(())
         })?,
-        Commands::Restore { force } => walk_shadow_files(&shadow_dir, |e| {
-            let link = e.path().strip_prefix(&shadow_dir)?;
-            if let Some(parent) = link.parent() {
-                if !parent.as_os_str().is_empty() && !parent.exists() {
-                    fs::create_dir(parent)
-                        .with_context(|| format!("Creating directory `{}`", parent.display()))?;
-                }
-            }
-            if link.exists() {
-                if link.is_symlink() && fs::read_link(link)? == e.path() {
-                    return Ok(());
-                }
-                if *force {
-                    remove_file(link).with_context(|| format!("Removing `{}`", link.display()))?;
-                } else {
-                    bail!("File exists: `{}`", link.display());
-                }
-            }
-            std::os::unix::fs::symlink(e.path(), link)
-                .with_context(|| format!("Creating link `{}`", link.display()))?;
-            Ok(())
-        })?,
+        Commands::Restore { force } => restore(&shadow_dir, *force)?,
         Commands::Rm { files } => {
             for f in files {
                 let shadow = shadow_dir.join(f);
@@ -90,4 +69,29 @@ fn main() -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+fn restore(shadow_dir: &std::path::PathBuf, force: bool) -> Result<(), anyhow::Error> {
+    walk_shadow_files(shadow_dir, |e| {
+        let link = e.path().strip_prefix(shadow_dir)?;
+        if let Some(parent) = link.parent() {
+            if !parent.as_os_str().is_empty() && !parent.exists() {
+                fs::create_dir(parent)
+                    .with_context(|| format!("Creating directory `{}`", parent.display()))?;
+            }
+        }
+        if link.exists() {
+            if link.is_symlink() && fs::read_link(link)? == e.path() {
+                return Ok(());
+            }
+            if force {
+                remove_file(link).with_context(|| format!("Removing `{}`", link.display()))?;
+            } else {
+                bail!("File exists: `{}`", link.display());
+            }
+        }
+        std::os::unix::fs::symlink(e.path(), link)
+            .with_context(|| format!("Creating link `{}`", link.display()))?;
+        Ok(())
+    })
 }
