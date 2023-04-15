@@ -35,7 +35,7 @@ define the following function in your shell startup file (`.bashrc`,
 git() {
         case "$1" in
             clean) shift; shdw git-clean "$@";;
-            *) git "$@";;
+            *) command git "$@";;
         esac
 }
 ```
