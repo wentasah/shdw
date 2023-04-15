@@ -33,4 +33,13 @@ pub enum Commands {
         #[arg(required(true), value_hint = ValueHint::FilePath)]
         files: Vec<String>,
     },
+    /// Run 'git clean' with given ARGS followed by 'shdw restore'.
+    GitClean {
+        /// Don't run 'shdw restore' after 'git clean'.
+        #[arg(long)]
+        no_shdw: bool,
+        /// git-clean options
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        git_options: Vec<String>,
+    },
 }

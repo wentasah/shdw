@@ -67,6 +67,25 @@ fn main() -> anyhow::Result<()> {
                 }
             }
         }
+        Commands::GitClean {
+            no_shdw,
+            git_options,
+        } => {
+            let status = std::process::Command::new("git")
+                .arg("clean")
+                .args(git_options)
+                .status()
+                .with_context(|| format!("git clean {}", git_options.join(" ")))?;
+            if !status.success() {
+                bail!(status);
+            }
+            if !no_shdw {
+                eprintln!(
+                    "Restoring shdw files. Use --no-shdw (as the first argument) to skip this."
+                );
+                restore(&shadow_dir, false)?;
+            }
+        }
     }
     Ok(())
 }
