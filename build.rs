@@ -15,12 +15,10 @@ fn main() -> Result<(), Error> {
     };
 
     let mut cmd = Cli::command();
-
-    let man = Path::new(&outdir).join("shdw.1");
-    Man::new(cmd.clone())
-        .render(&mut File::create(&man).unwrap())
-        .unwrap();
-    println!("cargo:warning=man page generated: {:?}", man);
+    render_man(&outdir, &cmd, None);
+    for subcommand in cmd.get_subcommands() {
+        render_man(&outdir, &cmd, Some(subcommand));
+    }
 
     for shell in Shell::value_variants() {
         let path = generate_to(*shell, &mut cmd, "shdw", &outdir)?;
@@ -31,4 +29,19 @@ fn main() -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn render_man(outdir: &std::ffi::OsString, cmd: &clap::Command, subcmd: Option<&clap::Command>) {
+    let title = match subcmd {
+        Some(subcmd) => format!("{} {}", cmd.get_name(), subcmd.get_name()),
+        None => format!("{}", cmd.get_name()),
+    };
+    let fname = match subcmd {
+        Some(subcmd) => format!("{}-{}.1", cmd.get_name(), subcmd.get_name()),
+        None => format!("{}.1", cmd.get_name()),
+    };
+    let man = Man::new(subcmd.unwrap_or(cmd).clone()).title(title);
+    let path = Path::new(outdir).join(fname);
+    man.render(&mut File::create(&path).unwrap()).unwrap();
+    println!("cargo:warning=man page generated: {:?}", path);
 }

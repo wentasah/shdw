@@ -18,7 +18,7 @@
           preFixup = ''
                 dir=($releaseDir/build/shdw-*/out)
                 installShellCompletion $dir/shdw.{bash,fish} --zsh $dir/_shdw
-                installManPage $dir/shdw.1
+                installManPage $dir/shdw*.1
               '';
         };
     };
