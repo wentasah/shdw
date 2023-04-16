@@ -41,9 +41,9 @@ pub fn make_path_relative_to<P1: AsRef<Path>, P2: AsRef<Path>>(path: P1, to: P2)
     components.iter().collect()
 }
 
-fn walk_shadow_files<F>(shadow_dir: &Path, f: F) -> anyhow::Result<()>
+fn walk_shadow_files<F>(shadow_dir: &Path, mut f: F) -> anyhow::Result<()>
 where
-    F: Fn(&DirEntry) -> anyhow::Result<()>,
+    F: FnMut(&DirEntry) -> anyhow::Result<()>,
 {
     for entry in WalkDir::new(&shadow_dir) {
         let e = entry?;
@@ -123,15 +123,22 @@ fn main() -> anyhow::Result<()> {
                 .arg("clean")
                 .args(git_options)
                 .status()
-                .with_context(|| format!("git clean {}", git_options.join(" ")))?;
+                .with_context(|| format!("Running git clean {}", git_options.join(" ")))?;
             if !status.success() {
                 bail!(status);
             }
             if !no_shdw {
-                eprintln!(
-                    "Restoring shdw files. Use --no-shdw (as the first argument) to skip this."
-                );
-                restore(&shadow_dir, false)?;
+                let mut has_shaddow = false;
+                walk_shadow_files(&shadow_dir, |_| {
+                    has_shaddow = true;
+                    Ok(())
+                })?;
+                if has_shaddow {
+                    eprintln!(
+                        "Restoring shdw files. Use --no-shdw (as the first argument) to skip this."
+                    );
+                    restore(&shadow_dir, false)?;
+                }
             }
         }
     }
