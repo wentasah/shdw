@@ -24,10 +24,10 @@
           '';
 
           preFixup = ''
-                dir=($releaseDir/build/shdw-*/out)
-                installShellCompletion $dir/shdw.{bash,fish} --zsh $dir/_shdw
-                installManPage $dir/shdw*.1
-              '';
+            dir=($releaseDir/build/shdw-*/out)
+            installShellCompletion $dir/shdw.{bash,fish} --zsh $dir/_shdw
+            installManPage $dir/shdw*.1
+          '';
         };
     };
   } // flake-utils.lib.eachDefaultSystem (system:
