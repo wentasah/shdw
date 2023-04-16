@@ -129,7 +129,14 @@ fn restore(current_dir_shadow: &std::path::PathBuf, force: bool) -> Result<(), a
                 bail!("File exists: `{}`", link.display());
             }
         }
-        symlink(e.path(), link).with_context(|| format!("Creating link `{}`", link.display()))?;
+        symlink(
+            make_path_relative_to(
+                e.path(),
+                ensure_absolute_path(link.into())?.parent().unwrap(),
+            ),
+            link,
+        )
+        .with_context(|| format!("Creating link `{}`", link.display()))?;
         Ok(())
     })
 }
