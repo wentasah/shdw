@@ -14,6 +14,14 @@
           src = self;
           cargoLock.lockFile = ./Cargo.lock;
           nativeBuildInputs = [ installShellFiles ];
+          nativeCheckInputs = [
+            (bats.withLibraries (p: [ p.bats-support p.bats-assert p.bats-file ]))
+          ];
+
+          postCheck = ''
+            PATH=$PWD/$(echo target/*/release):$PATH
+            bats -F pretty tests
+          '';
 
           preFixup = ''
                 dir=($releaseDir/build/shdw-*/out)

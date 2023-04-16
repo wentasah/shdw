@@ -56,9 +56,9 @@ where
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    let base_dir = dbg!(ensure_absolute_path(cli.base_dir.into())?);
-    let shadow_dir_abs = dbg!(ensure_absolute_path(cli.shadow_dir.into())?);
-    let current_dir_shadow = dbg!(shadow_dir_abs.join(current_dir()?.strip_prefix(base_dir)?));
+    let base_dir = ensure_absolute_path(cli.base_dir.into())?;
+    let shadow_dir_abs = ensure_absolute_path(cli.shadow_dir.into())?;
+    let current_dir_shadow = shadow_dir_abs.join(current_dir()?.strip_prefix(base_dir)?);
 
     match &cli.command {
         Commands::Add { files } => add(files, &current_dir_shadow)?,
@@ -85,8 +85,11 @@ fn add(files: &Vec<String>, current_dir_shadow: &PathBuf) -> Result<(), anyhow::
     Ok(for f in files {
         let shadow = current_dir_shadow.join(f);
         let src = PathBuf::from(f);
+        if !src.exists() {
+            bail!("{} does not exist", src.display());
+        }
         if src.is_symlink() {
-            bail!("{} is already a symlink", f);
+            bail!("{} is already a symlink", src.display());
         }
         let parent = shadow.parent().unwrap();
         create_dir_all(parent)
@@ -94,8 +97,8 @@ fn add(files: &Vec<String>, current_dir_shadow: &PathBuf) -> Result<(), anyhow::
         let srcc = src
             .canonicalize()
             .with_context(|| format!("Canonicalizing {}", src.display()))?;
-        fs::rename(f, &shadow) // FIXME: Don't require same filesystem
-            .with_context(|| format!("Renaming {} to {}", f, shadow.display()))?;
+        fs::rename(&src, &shadow) // FIXME: Don't require same filesystem
+            .with_context(|| format!("Renaming {} to {}", src.display(), shadow.display()))?;
         symlink(make_path_relative_to(&shadow, srcc.parent().unwrap()), srcc)?;
     })
 }
