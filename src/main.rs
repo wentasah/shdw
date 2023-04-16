@@ -62,87 +62,42 @@ fn main() -> anyhow::Result<()> {
     let shadow_dir = shadow_base.join(current_dir()?.strip_prefix(home_dir)?);
 
     match &cli.command {
-        Commands::Add { files } => {
-            for f in files {
-                let shadow = shadow_dir.join(f);
-                let src = PathBuf::from(f);
-                if src.is_symlink() {
-                    bail!("{} is already a symlink", f);
-                }
-                let parent = shadow.parent().unwrap();
-                create_dir_all(parent)
-                    .with_context(|| format!("Creating directory {}", parent.display()))?;
-                let srcc = src
-                    .canonicalize()
-                    .with_context(|| format!("Canonicalizing {}", src.display()))?;
-                fs::rename(f, &shadow) // FIXME: Don't require same filesystem
-                    .with_context(|| format!("Renaming {} to {}", f, shadow.display()))?;
-                symlink(make_path_relative_to(&shadow, srcc.parent().unwrap()), srcc)?;
-            }
-        }
-        Commands::Ls {} => walk_shadow_files(&shadow_dir, |e| {
-            println!("{}", e.path().strip_prefix(&shadow_dir)?.display());
-            Ok(())
-        })?,
+        Commands::Add { files } => add(files, &shadow_dir)?,
+        Commands::Ls {} => ls(&shadow_dir)?,
         Commands::Restore { force } => restore(&shadow_dir, *force)?,
-        Commands::Rm { files } => {
-            for f in files {
-                let shadow = shadow_dir.join(f);
-                let f = Path::new(f);
-                if !shadow.is_file() {
-                    bail!("`{}` is not a file", shadow.display());
-                }
-                if f.is_symlink() && f.is_file() {
-                    let dst = fs::read_link(f)?;
-                    if dst
-                        .canonicalize()
-                        .with_context(|| format!("Canonicalizing {}", dst.display()))?
-                        == shadow
-                            .canonicalize()
-                            .with_context(|| format!("Canonicalizing {}", shadow.display()))?
-                    {
-                        remove_file(f).with_context(|| format!("Removing `{}`", f.display()))?;
-                        fs::rename(&shadow, f).with_context(|| {
-                            format!("Moving `{}` to `{}`", shadow.display(), f.display())
-                        })?;
-                    } else {
-                        bail!(
-                            "Not removing `{}` because it's not a symlink pointing to file `{}`",
-                            f.display(),
-                            shadow.display()
-                        );
-                    }
-                }
-            }
-        }
+        Commands::Rm { files } => rm(files, &shadow_dir)?,
         Commands::GitClean {
             no_shdw,
             git_options,
-        } => {
-            let status = std::process::Command::new("git")
-                .arg("clean")
-                .args(git_options)
-                .status()
-                .with_context(|| format!("Running git clean {}", git_options.join(" ")))?;
-            if !status.success() {
-                bail!(status);
-            }
-            if !no_shdw {
-                let mut has_shaddow = false;
-                walk_shadow_files(&shadow_dir, |_| {
-                    has_shaddow = true;
-                    Ok(())
-                })?;
-                if has_shaddow {
-                    eprintln!(
-                        "Restoring shdw files. Use --no-shdw (as the first argument) to skip this."
-                    );
-                    restore(&shadow_dir, false)?;
-                }
-            }
-        }
+        } => git_clean(git_options, no_shdw, shadow_dir)?,
     }
     Ok(())
+}
+
+fn add(files: &Vec<String>, shadow_dir: &PathBuf) -> Result<(), anyhow::Error> {
+    Ok(for f in files {
+        let shadow = shadow_dir.join(f);
+        let src = PathBuf::from(f);
+        if src.is_symlink() {
+            bail!("{} is already a symlink", f);
+        }
+        let parent = shadow.parent().unwrap();
+        create_dir_all(parent)
+            .with_context(|| format!("Creating directory {}", parent.display()))?;
+        let srcc = src
+            .canonicalize()
+            .with_context(|| format!("Canonicalizing {}", src.display()))?;
+        fs::rename(f, &shadow) // FIXME: Don't require same filesystem
+            .with_context(|| format!("Renaming {} to {}", f, shadow.display()))?;
+        symlink(make_path_relative_to(&shadow, srcc.parent().unwrap()), srcc)?;
+    })
+}
+
+fn ls(shadow_dir: &PathBuf) -> Result<(), anyhow::Error> {
+    walk_shadow_files(shadow_dir, |e| {
+        println!("{}", e.path().strip_prefix(&shadow_dir)?.display());
+        Ok(())
+    })
 }
 
 fn restore(shadow_dir: &std::path::PathBuf, force: bool) -> Result<(), anyhow::Error> {
@@ -166,5 +121,62 @@ fn restore(shadow_dir: &std::path::PathBuf, force: bool) -> Result<(), anyhow::E
         }
         symlink(e.path(), link).with_context(|| format!("Creating link `{}`", link.display()))?;
         Ok(())
+    })
+}
+
+fn rm(files: &Vec<String>, shadow_dir: &PathBuf) -> Result<(), anyhow::Error> {
+    Ok(for f in files {
+        let shadow = shadow_dir.join(f);
+        let f = Path::new(f);
+        if !shadow.is_file() {
+            bail!("`{}` is not a file", shadow.display());
+        }
+        if f.is_symlink() && f.is_file() {
+            let dst = fs::read_link(f)?;
+            if dst
+                .canonicalize()
+                .with_context(|| format!("Canonicalizing {}", dst.display()))?
+                == shadow
+                    .canonicalize()
+                    .with_context(|| format!("Canonicalizing {}", shadow.display()))?
+            {
+                remove_file(f).with_context(|| format!("Removing `{}`", f.display()))?;
+                fs::rename(&shadow, f).with_context(|| {
+                    format!("Moving `{}` to `{}`", shadow.display(), f.display())
+                })?;
+            } else {
+                bail!(
+                    "Not removing `{}` because it's not a symlink pointing to file `{}`",
+                    f.display(),
+                    shadow.display()
+                );
+            }
+        }
+    })
+}
+
+fn git_clean(
+    git_options: &Vec<String>,
+    no_shdw: &bool,
+    shadow_dir: PathBuf,
+) -> Result<(), anyhow::Error> {
+    let status = std::process::Command::new("git")
+        .arg("clean")
+        .args(git_options)
+        .status()
+        .with_context(|| format!("Running git clean {}", git_options.join(" ")))?;
+    if !status.success() {
+        bail!(status);
+    }
+    Ok(if !no_shdw {
+        let mut has_shaddow = false;
+        walk_shadow_files(&shadow_dir, |_| {
+            has_shaddow = true;
+            Ok(())
+        })?;
+        if has_shaddow {
+            eprintln!("Restoring shdw files. Use --no-shdw (as the first argument) to skip this.");
+            restore(&shadow_dir, false)?;
+        }
     })
 }
