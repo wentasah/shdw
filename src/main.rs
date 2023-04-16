@@ -157,8 +157,7 @@ fn restore(shadow_dir: &std::path::PathBuf, force: bool) -> Result<(), anyhow::E
                 bail!("File exists: `{}`", link.display());
             }
         }
-        std::os::unix::fs::symlink(e.path(), link)
-            .with_context(|| format!("Creating link `{}`", link.display()))?;
+        symlink(e.path(), link).with_context(|| format!("Creating link `{}`", link.display()))?;
         Ok(())
     })
 }
