@@ -21,11 +21,11 @@ fn main() -> Result<(), Error> {
     }
 
     for shell in Shell::value_variants() {
-        let path = generate_to(*shell, &mut cmd, "shdw", &outdir)?;
-        println!(
-            "cargo:warning={} completion file is generated: {:?}",
-            shell, path
-        );
+        let _path = generate_to(*shell, &mut cmd, "shdw", &outdir)?;
+        // println!(
+        //     "cargo:warning={} completion file is generated: {:?}",
+        //     shell, path
+        // );
     }
 
     Ok(())
@@ -43,5 +43,5 @@ fn render_man(outdir: &std::ffi::OsString, cmd: &clap::Command, subcmd: Option<&
     let man = Man::new(subcmd.unwrap_or(cmd).clone()).title(title);
     let path = Path::new(outdir).join(fname);
     man.render(&mut File::create(&path).unwrap()).unwrap();
-    println!("cargo:warning=man page generated: {:?}", path);
+    // println!("cargo:warning=man page generated: {:?}", path);
 }
