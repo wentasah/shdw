@@ -9,7 +9,7 @@ build = "build.rs"
 
 [dependencies]
 anyhow = "1.0.66"
-clap = { version = "4.0.18", features = ["derive"] }
+clap = { version = "4.0.18", features = ["derive", "env"] }
 dirs = "4.0.0"
 walkdir = "2.3.2"
 
@@ -17,3 +17,4 @@ walkdir = "2.3.2"
 clap = { version = "4.0.18", features = ["derive"] }
 clap_complete = "*"
 clap_mangen = "*"
+dirs = "4.0.0"

@@ -3,7 +3,6 @@ mod cli;
 use anyhow::{bail, Context};
 use clap::Parser;
 use cli::{Cli, Commands};
-use dirs::home_dir;
 use std::env::current_dir;
 use std::fs::remove_file;
 use std::os::unix::fs::symlink;
@@ -57,26 +56,34 @@ where
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    let home_dir = home_dir().expect("home directory should be defined");
-    let shadow_base = home_dir.join(Path::new("nix/conf/env")).canonicalize()?;
-    let shadow_dir = shadow_base.join(current_dir()?.strip_prefix(home_dir)?);
+    let base_dir = dbg!(ensure_absolute_path(cli.base_dir.into())?);
+    let shadow_dir_abs = dbg!(ensure_absolute_path(cli.shadow_dir.into())?);
+    let current_dir_shadow = dbg!(shadow_dir_abs.join(current_dir()?.strip_prefix(base_dir)?));
 
     match &cli.command {
-        Commands::Add { files } => add(files, &shadow_dir)?,
-        Commands::Ls {} => ls(&shadow_dir)?,
-        Commands::Restore { force } => restore(&shadow_dir, *force)?,
-        Commands::Rm { files } => rm(files, &shadow_dir)?,
+        Commands::Add { files } => add(files, &current_dir_shadow)?,
+        Commands::Ls {} => ls(&current_dir_shadow)?,
+        Commands::Restore { force } => restore(&current_dir_shadow, *force)?,
+        Commands::Rm { files } => rm(files, &current_dir_shadow)?,
         Commands::GitClean {
             no_shdw,
             git_options,
-        } => git_clean(git_options, no_shdw, shadow_dir)?,
+        } => git_clean(git_options, no_shdw, current_dir_shadow)?,
     }
     Ok(())
 }
 
-fn add(files: &Vec<String>, shadow_dir: &PathBuf) -> Result<(), anyhow::Error> {
+fn ensure_absolute_path(shadow_dir: PathBuf) -> Result<PathBuf, anyhow::Error> {
+    Ok(if shadow_dir.is_absolute() {
+        shadow_dir
+    } else {
+        current_dir()?.join(shadow_dir)
+    })
+}
+
+fn add(files: &Vec<String>, current_dir_shadow: &PathBuf) -> Result<(), anyhow::Error> {
     Ok(for f in files {
-        let shadow = shadow_dir.join(f);
+        let shadow = current_dir_shadow.join(f);
         let src = PathBuf::from(f);
         if src.is_symlink() {
             bail!("{} is already a symlink", f);
@@ -93,16 +100,16 @@ fn add(files: &Vec<String>, shadow_dir: &PathBuf) -> Result<(), anyhow::Error> {
     })
 }
 
-fn ls(shadow_dir: &PathBuf) -> Result<(), anyhow::Error> {
-    walk_shadow_files(shadow_dir, |e| {
-        println!("{}", e.path().strip_prefix(&shadow_dir)?.display());
+fn ls(current_dir_shadow: &PathBuf) -> Result<(), anyhow::Error> {
+    walk_shadow_files(current_dir_shadow, |e| {
+        println!("{}", e.path().strip_prefix(&current_dir_shadow)?.display());
         Ok(())
     })
 }
 
-fn restore(shadow_dir: &std::path::PathBuf, force: bool) -> Result<(), anyhow::Error> {
-    walk_shadow_files(shadow_dir, |e| {
-        let link = e.path().strip_prefix(shadow_dir)?;
+fn restore(current_dir_shadow: &std::path::PathBuf, force: bool) -> Result<(), anyhow::Error> {
+    walk_shadow_files(current_dir_shadow, |e| {
+        let link = e.path().strip_prefix(current_dir_shadow)?;
         if let Some(parent) = link.parent() {
             if !parent.as_os_str().is_empty() && !parent.exists() {
                 fs::create_dir(parent)
@@ -124,9 +131,9 @@ fn restore(shadow_dir: &std::path::PathBuf, force: bool) -> Result<(), anyhow::E
     })
 }
 
-fn rm(files: &Vec<String>, shadow_dir: &PathBuf) -> Result<(), anyhow::Error> {
+fn rm(files: &Vec<String>, current_dir_shadow: &PathBuf) -> Result<(), anyhow::Error> {
     Ok(for f in files {
-        let shadow = shadow_dir.join(f);
+        let shadow = current_dir_shadow.join(f);
         let f = Path::new(f);
         if !shadow.is_file() {
             bail!("`{}` is not a file", shadow.display());
@@ -158,7 +165,7 @@ fn rm(files: &Vec<String>, shadow_dir: &PathBuf) -> Result<(), anyhow::Error> {
 fn git_clean(
     git_options: &Vec<String>,
     no_shdw: &bool,
-    shadow_dir: PathBuf,
+    current_dir_shadow: PathBuf,
 ) -> Result<(), anyhow::Error> {
     let status = std::process::Command::new("git")
         .arg("clean")
@@ -170,13 +177,13 @@ fn git_clean(
     }
     Ok(if !no_shdw {
         let mut has_shaddow = false;
-        walk_shadow_files(&shadow_dir, |_| {
+        walk_shadow_files(&current_dir_shadow, |_| {
             has_shaddow = true;
             Ok(())
         })?;
         if has_shaddow {
             eprintln!("Restoring shdw files. Use --no-shdw (as the first argument) to skip this.");
-            restore(&shadow_dir, false)?;
+            restore(&current_dir_shadow, false)?;
         }
     })
 }

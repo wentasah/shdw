@@ -1,4 +1,9 @@
 use clap::{Parser, Subcommand, ValueHint};
+use std::path::PathBuf;
+
+fn home_dir() -> PathBuf {
+    dirs::home_dir().expect("home directory should be defined")
+}
 
 /// Manage symlinks to files in a shadow directory
 ///
@@ -9,6 +14,12 @@ use clap::{Parser, Subcommand, ValueHint};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
+    /// Shadow directory to use
+    #[arg(long, env("SHDW_DIR"), value_hint = ValueHint::DirPath, default_value_t = home_dir().join(PathBuf::from(".config/shdw/dir")).display().to_string())]
+    pub shadow_dir: String,
+    /// Base directory
+    #[arg(long, env("SHDW_BASE_DIR"), value_hint = ValueHint::DirPath, default_value_t = home_dir().display().to_string())]
+    pub base_dir: String,
 }
 
 #[derive(Subcommand)]
