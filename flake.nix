@@ -5,7 +5,7 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
-  outputs = { self, nixpkgs, flake-utils }: {
+  outputs = { self, nixpkgs, flake-utils, ... }@inputs: {
     overlays.default = final: prev: {
       shdw = with final;
         rustPlatform.buildRustPackage rec {
@@ -17,6 +17,7 @@
           nativeCheckInputs = [
             (bats.withLibraries (p: [ p.bats-support p.bats-assert p.bats-file ]))
           ];
+          checkInputs = nativeCheckInputs; # For 22.11 compatibility (it doesn't have nativeCheckInputs)
 
           postCheck = ''
             PATH=$PWD/$(echo target/*/release):$PATH
