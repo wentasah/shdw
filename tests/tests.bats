@@ -21,7 +21,7 @@ setup() {
   assert_success
 }
 
-@test "shadow-dir should exist" {
+@test "top-level shadow-dir should exist" {
   run shdw --shadow-dir=non-existent ls
   assert_failure
 }
@@ -49,5 +49,14 @@ setup() {
 @test "add empty directory" {
   mkdir dir
   run shdw add dir
+  assert_success
+}
+
+@test "subdirectory of top-level shadow-dir may not exist" {
+  touch file
+  run shdw add file             # create shaddow dir
+  mkdir subdir
+  cd subdir
+  run shdw ls
   assert_success
 }
