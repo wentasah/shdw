@@ -64,6 +64,10 @@ fn main() -> anyhow::Result<()> {
     let shadow_dir_abs = ensure_absolute_path(cli.shadow_dir.into())?;
     let current_dir_shadow = shadow_dir_abs.join(current_dir()?.strip_prefix(base_dir)?);
 
+    if !shadow_dir_abs.exists() && !matches!(&cli.command, Commands::Add { .. }) {
+        bail!("{shadow_dir_abs:?} does not exist");
+    }
+
     match &cli.command {
         Commands::Add { files } => add(files, &current_dir_shadow)?,
         Commands::Ls {} => ls(&current_dir_shadow)?,
