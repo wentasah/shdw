@@ -44,7 +44,7 @@ fn walk_shadow_files<F>(shadow_dir: &Path, mut f: F) -> anyhow::Result<()>
 where
     F: FnMut(&DirEntry) -> anyhow::Result<()>,
 {
-    for entry in WalkDir::new(&shadow_dir) {
+    for entry in WalkDir::new(shadow_dir) {
         let e = entry?;
         if e.file_type().is_file() {
             f(&e)?;
@@ -81,8 +81,8 @@ fn ensure_absolute_path(shadow_dir: PathBuf) -> Result<PathBuf, anyhow::Error> {
     })
 }
 
-fn add(files: &Vec<String>, current_dir_shadow: &PathBuf) -> Result<(), anyhow::Error> {
-    Ok(for f in files {
+fn add(files: &Vec<String>, current_dir_shadow: &Path) -> Result<(), anyhow::Error> {
+    for f in files {
         let shadow = current_dir_shadow.join(f);
         let src = PathBuf::from(f);
         if !src.exists() {
@@ -100,12 +100,13 @@ fn add(files: &Vec<String>, current_dir_shadow: &PathBuf) -> Result<(), anyhow::
         fs::rename(&src, &shadow) // FIXME: Don't require same filesystem
             .with_context(|| format!("Renaming {} to {}", src.display(), shadow.display()))?;
         symlink(make_path_relative_to(&shadow, srcc.parent().unwrap()), srcc)?;
-    })
+    }
+    Ok(())
 }
 
-fn ls(current_dir_shadow: &PathBuf) -> Result<(), anyhow::Error> {
+fn ls(current_dir_shadow: &Path) -> Result<(), anyhow::Error> {
     walk_shadow_files(current_dir_shadow, |e| {
-        println!("{}", e.path().strip_prefix(&current_dir_shadow)?.display());
+        println!("{}", e.path().strip_prefix(current_dir_shadow)?.display());
         Ok(())
     })
 }
@@ -141,8 +142,8 @@ fn restore(current_dir_shadow: &std::path::PathBuf, force: bool) -> Result<(), a
     })
 }
 
-fn rm(files: &Vec<String>, current_dir_shadow: &PathBuf) -> Result<(), anyhow::Error> {
-    Ok(for f in files {
+fn rm(files: &Vec<String>, current_dir_shadow: &Path) -> Result<(), anyhow::Error> {
+    for f in files {
         let shadow = current_dir_shadow.join(f);
         let f = Path::new(f);
         if !shadow.is_file() {
@@ -169,7 +170,8 @@ fn rm(files: &Vec<String>, current_dir_shadow: &PathBuf) -> Result<(), anyhow::E
                 );
             }
         }
-    })
+    }
+    Ok(())
 }
 
 fn git_clean(
@@ -185,7 +187,7 @@ fn git_clean(
     if !status.success() {
         bail!(status);
     }
-    Ok(if !no_shdw {
+    if !no_shdw {
         let mut has_shaddow = false;
         walk_shadow_files(&current_dir_shadow, |_| {
             has_shaddow = true;
@@ -195,5 +197,6 @@ fn git_clean(
             eprintln!("Restoring shdw files. Use --no-shdw (as the first argument) to skip this.");
             restore(&current_dir_shadow, false)?;
         }
-    })
+    }
+    Ok(())
 }

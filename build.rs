@@ -34,7 +34,7 @@ fn main() -> Result<(), Error> {
 fn render_man(outdir: &std::ffi::OsString, cmd: &clap::Command, subcmd: Option<&clap::Command>) {
     let title = match subcmd {
         Some(subcmd) => format!("{} {}", cmd.get_name(), subcmd.get_name()),
-        None => format!("{}", cmd.get_name()),
+        None => cmd.get_name().to_string(),
     };
     let fname = match subcmd {
         Some(subcmd) => format!("{}-{}.1", cmd.get_name(), subcmd.get_name()),
@@ -42,6 +42,6 @@ fn render_man(outdir: &std::ffi::OsString, cmd: &clap::Command, subcmd: Option<&
     };
     let man = Man::new(subcmd.unwrap_or(cmd).clone()).title(title);
     let path = Path::new(outdir).join(fname);
-    man.render(&mut File::create(&path).unwrap()).unwrap();
+    man.render(&mut File::create(path).unwrap()).unwrap();
     // println!("cargo:warning=man page generated: {:?}", path);
 }
