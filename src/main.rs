@@ -44,6 +44,10 @@ fn walk_shadow_files<F>(shadow_dir: &Path, mut f: F) -> anyhow::Result<()>
 where
     F: FnMut(&DirEntry) -> anyhow::Result<()>,
 {
+    if !shadow_dir.exists() {
+        // It's not an error when there is no shadow directory
+        return Ok(());
+    }
     for entry in WalkDir::new(shadow_dir) {
         let e = entry?;
         if e.file_type().is_file() {
